@@ -48,8 +48,13 @@ jobs:
           git clone --depth 1 https://github.com/RossBencina/oscpack.git lib/oscpack
           test -f "lib/oscpack/osc/OscOutboundPacketStream.h"
 
-      - name: Configure (CMake)
+      - name: Configure (CMake, macOS)
+        if: runner.os == 'macOS'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure (CMake, Windows x64)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         shell: bash
@@ -68,6 +73,11 @@ jobs:
 
       - name: Stage install
         run: cmake --install build --config Release --prefix stage
+
+      - name: Validate Windows plugin binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/validate_windows_binary.ps1 -PluginPath stage/reaper_wingconnector.dll
 
       - name: Upload staged artifact
         uses: actions/upload-artifact@v4

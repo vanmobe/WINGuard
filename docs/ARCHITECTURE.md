@@ -66,6 +66,7 @@ Build system: `CMakeLists.txt`
   - `.dylib` on macOS
   - `.dll` on Windows
 - Links platform dependencies conditionally.
+- Builds the Windows release as x64 with a statically linked MSVC runtime, and validates the staged DLL before installer creation.
 - Uses `oscpack` and REAPER SDK headers.
 
 CI/CD:

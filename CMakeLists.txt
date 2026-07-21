@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
+cmake_policy(SET CMP0091 NEW)
+
 project(AUDIOLABWingReaperVirtualSoundcheck VERSION 1.2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -117,6 +119,11 @@ target_compile_definitions(reaper_wingconnector
 
 # Compiler flags
 if(MSVC)
+    # Keep the packaged extension self-contained so REAPER can load it on a
+    # clean Windows installation without a separate Visual C++ Redistributable.
+    set_property(TARGET reaper_wingconnector PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
     target_compile_options(
         reaper_wingconnector
         PRIVATE
