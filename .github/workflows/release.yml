@@ -55,13 +55,8 @@ jobs:
           CLEAN_VERSION="${RAW_VERSION#v}"
           echo "VERSION=${CLEAN_VERSION}" >> "$GITHUB_ENV"
 
-      - name: Configure (CMake, macOS)
-        if: runner.os == 'macOS'
+      - name: Configure (CMake)
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Configure (CMake, Windows x64)
-        if: runner.os == 'Windows'
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         shell: bash
