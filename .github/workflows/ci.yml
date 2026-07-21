@@ -69,6 +69,11 @@ jobs:
       - name: Stage install
         run: cmake --install build --config Release --prefix stage
 
+      - name: Validate Windows plugin binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/validate_windows_binary.ps1 -PluginPath stage/reaper_wingconnector.dll
+
       - name: Upload staged artifact
         uses: actions/upload-artifact@v4
         with:
