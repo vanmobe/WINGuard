@@ -8,11 +8,19 @@ $ErrorActionPreference = 'Stop'
 
 $pluginName = 'reaper_wingconnector.dll'
 $configName = 'config.json'
+$logoName = 'wingguard-logo.png'
+$iconDirName = 'ui-icons'
 $appName = 'WINGuard'
 
 $stagePath = (Resolve-Path $StageDir).Path
 if (-not (Test-Path (Join-Path $stagePath $pluginName))) {
     throw "Missing $pluginName in $stagePath"
+}
+if (-not (Test-Path (Join-Path $stagePath $logoName))) {
+    throw "Missing $logoName in $stagePath"
+}
+if (-not (Test-Path (Join-Path $stagePath $iconDirName))) {
+    throw "Missing $iconDirName in $stagePath"
 }
 
 $validatorPath = Join-Path $PSScriptRoot 'validate_windows_binary.ps1'
@@ -63,6 +71,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "$stagePath\$pluginName"; DestDir: "{userappdata}\REAPER\UserPlugins"; Flags: ignoreversion
+Source: "$stagePath\$logoName"; DestDir: "{userappdata}\REAPER\UserPlugins"; Flags: ignoreversion
+Source: "$stagePath\$iconDirName\*.png"; DestDir: "{userappdata}\REAPER\UserPlugins\$iconDirName"; Flags: ignoreversion
 $configFileEntry
 
 [Icons]

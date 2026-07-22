@@ -92,7 +92,7 @@ For mapping details (and legacy manual fallback), see:
 Remove plugin and config from your REAPER `UserPlugins` path:
 
 - macOS: `reaper_wingconnector.dylib`, `config.json`
-- Windows: `reaper_wingconnector.dll`, `config.json`
+- Windows: `reaper_wingconnector.dll`, `wingguard-logo.png`, the `ui-icons` folder, and `config.json`
 
 If behavior persists, also check for a fallback config in `~/.wingconnector/config.json`.
 

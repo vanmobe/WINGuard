@@ -5,16 +5,27 @@
 
 namespace WingConnector::PlaybackNaming {
 
+inline std::string StereoBaseName(std::string name) {
+    while (name.size() >= 4) {
+        const std::string suffix = name.substr(name.size() - 4);
+        if (suffix != " (L)" && suffix != " (R)") {
+            break;
+        }
+        name.resize(name.size() - 4);
+    }
+    return name;
+}
+
 inline std::string StereoInputName(const std::string& base_name) {
-    return base_name;
+    return StereoBaseName(base_name);
 }
 
 inline std::string StereoOutputLeftName(const std::string& base_name) {
-    return base_name + " (L)";
+    return StereoBaseName(base_name);
 }
 
 inline std::string StereoOutputRightName(const std::string& base_name) {
-    return base_name + " (R)";
+    return StereoBaseName(base_name);
 }
 
 }  // namespace WingConnector::PlaybackNaming

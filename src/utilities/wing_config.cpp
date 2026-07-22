@@ -76,7 +76,10 @@ bool WingConfig::LoadFromFile(const std::string& filepath) {
         auto_record_warning_only = config.value("auto_record_warning_only", false);
         auto_record_threshold_db = config.value("auto_record_threshold_db", -40.0);
         auto_record_attack_ms = config.value("auto_record_attack_ms", 250);
-        auto_record_hold_ms = config.value("auto_record_hold_ms", 3000);
+        auto_record_hold_ms = config.value("auto_record_hold_ms", 120000);
+        if (auto_record_hold_ms <= 0) {
+            auto_record_hold_ms = 120000;
+        }
         auto_record_release_ms = config.value("auto_record_release_ms", 2000);
         auto_record_min_record_ms = config.value("auto_record_min_record_ms", 5000);
         auto_record_poll_ms = config.value("auto_record_poll_ms", 50);

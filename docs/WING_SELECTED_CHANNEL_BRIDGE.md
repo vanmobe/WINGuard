@@ -13,7 +13,7 @@ Polling is used because live desk validation showed that selection changes were 
 
 ## Configuration
 
-On macOS, open the main `WINGuard: Configure Virtual Soundcheck/Recording` action and use the bridge controls in `Control Integration`. The current Windows dialog reports the applied integration state but does not yet expose the full bridge mapping editor; Windows bridge settings are loaded from `config.json`.
+On macOS, open the main `WINGuard: Configure Virtual Soundcheck/Recording` action and use the bridge controls in `Integration`. The current Windows dialog reports the applied integration state but does not yet expose the full bridge mapping editor; Windows bridge settings are loaded from `config.json`.
 
 Bridge settings include:
 

@@ -60,6 +60,20 @@ void TestLoadForcesFixedPortsAndConvertsTimeout() {
     Expect(config.wing_port == 2223, "wing port should stay fixed to 2223");
     Expect(config.listen_port == 2223, "listen port should stay fixed to 2223");
     Expect(config.soundcheck_output_mode == "CARD", "output mode should load");
+    Expect(config.auto_record_hold_ms == 120000, "missing auto-record hold should use the safe 120-second default");
+}
+
+void TestLoadPreservesExplicitAutoRecordHold() {
+    const auto path = MakeTempPath("load_explicit_auto_record_hold.json");
+    WriteJsonFile(path, {{"auto_record_hold_ms", 45000}});
+
+    WingConfig config;
+    Expect(config.LoadFromFile(path.string()), "config with explicit auto-record hold should load");
+    Expect(config.auto_record_hold_ms == 45000, "explicit auto-record hold should be preserved");
+
+    WriteJsonFile(path, {{"auto_record_hold_ms", 0}});
+    Expect(config.LoadFromFile(path.string()), "config with unsafe zero hold should load");
+    Expect(config.auto_record_hold_ms == 120000, "unsafe zero hold should migrate to the 120-second default");
 }
 
 void TestLoadReadsBridgeMappingsAndManagedSelection() {
@@ -185,6 +199,7 @@ void TestSaveWritesRoundTrippableFields() {
 
 int main() {
     TestLoadForcesFixedPortsAndConvertsTimeout();
+    TestLoadPreservesExplicitAutoRecordHold();
     TestLoadReadsBridgeMappingsAndManagedSelection();
     TestLoadFallsBackForUnknownBridgeKindAndMissingArrays();
     TestLoadClampsAndDefaultsTrackColor();

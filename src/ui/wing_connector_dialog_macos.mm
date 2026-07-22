@@ -8,6 +8,7 @@
 #import <Cocoa/Cocoa.h>
 #include "internal/wing_connector_dialog_macos.h"
 #include "wingconnector/reaper_extension.h"
+#include <array>
 #include <string>
 #include <vector>
 #include <set>
@@ -153,6 +154,122 @@ std::vector<WingConnector::ChannelSelectionInfo> SelectedSourcesOnly(
 
 // ===== CHANNEL SELECTION DIALOG =====
 
+static NSString* ReadableConsoleInputMac(const std::string& group, int input) {
+    if (group.empty() || group == "OFF" || input <= 0) {
+        return @"No input";
+    }
+    NSDictionary* names = @{
+        @"A": @"AES A", @"B": @"AES B", @"C": @"AES C",
+        @"LCL": @"Local Input", @"AUX": @"Aux Input", @"SC": @"StageConnect",
+        @"USB": @"USB", @"CRD": @"Expansion Card", @"CARD": @"Expansion Card",
+        @"MOD": @"Module", @"REC": @"Recorder", @"AES": @"AES/EBU", @"USR": @"User Signal",
+        @"OFF": @"Off"
+    };
+    NSString* key = [NSString stringWithUTF8String:group.c_str()];
+    NSString* name = [names objectForKey:key];
+    return [NSString stringWithFormat:@"%@ %d", name ? name : key, input];
+}
+
+@interface WingSourceTableModel : NSObject <NSTableViewDataSource>
+{
+    const std::vector<WingConnector::ChannelSelectionInfo>* sources_;
+    std::vector<bool> selected_;
+}
+- (id)initWithSources:(const std::vector<WingConnector::ChannelSelectionInfo>*)sources;
+- (void)applySelectionTo:(std::vector<WingConnector::ChannelSelectionInfo>&)sources;
+@end
+
+@implementation WingSourceTableModel
+
+- (id)initWithSources:(const std::vector<WingConnector::ChannelSelectionInfo>*)sources {
+    self = [super init];
+    if (self) {
+        sources_ = sources;
+        selected_.reserve(sources ? sources->size() : 0);
+        if (sources) {
+            for (const auto& source : *sources) {
+                selected_.push_back(source.selected);
+            }
+        }
+    }
+    return self;
+}
+
+- (NSInteger)numberOfRowsInTableView:(NSTableView*)tableView {
+    (void)tableView;
+    return sources_ ? static_cast<NSInteger>(sources_->size()) : 0;
+}
+
+- (id)tableView:(NSTableView*)tableView objectValueForTableColumn:(NSTableColumn*)column row:(NSInteger)row {
+    (void)tableView;
+    if (!sources_ || row < 0 || static_cast<size_t>(row) >= sources_->size()) {
+        return @"";
+    }
+    const auto& source = (*sources_)[static_cast<size_t>(row)];
+    NSString* identifier = [column identifier];
+    if ([identifier isEqualToString:@"selected"]) {
+        return [NSNumber numberWithBool:selected_[static_cast<size_t>(row)] ? YES : NO];
+    }
+    NSString* kind = @"Source";
+    switch (source.kind) {
+        case SourceKind::Channel: kind = @"CH"; break;
+        case SourceKind::Bus: kind = @"BUS"; break;
+        case SourceKind::Main: kind = @"MAIN"; break;
+        case SourceKind::Matrix: kind = @"MTX"; break;
+    }
+    NSString* sourceLabel = [NSString stringWithFormat:@"%@ %d", kind, source.source_number];
+    if ([identifier isEqualToString:@"source"]) {
+        return sourceLabel;
+    }
+    if ([identifier isEqualToString:@"name"]) {
+        return source.name.empty() ? sourceLabel : [NSString stringWithUTF8String:source.name.c_str()];
+    }
+    if ([identifier isEqualToString:@"input"]) {
+        NSString* input = ReadableConsoleInputMac(source.source_group, source.source_input);
+        if (source.stereo_linked && !source.partner_source_group.empty() && source.partner_source_input > 0) {
+            input = [NSString stringWithFormat:@"%@ + %@", input,
+                     ReadableConsoleInputMac(source.partner_source_group, source.partner_source_input)];
+        }
+        return input;
+    }
+    if ([identifier isEqualToString:@"capability"]) {
+        if (source.kind == SourceKind::Channel &&
+            (source.source_group.empty() || source.source_group == "OFF" || source.source_input <= 0)) {
+            return @"Unavailable - No input";
+        }
+        if (source.soundcheck_capable) {
+            return source.stereo_linked ? @"Soundcheck - Stereo" : @"Soundcheck";
+        }
+        return source.stereo_linked ? @"Record only - Stereo" : @"Record only";
+    }
+    return @"";
+}
+
+- (void)tableView:(NSTableView*)tableView
+    setObjectValue:(id)value
+    forTableColumn:(NSTableColumn*)column
+               row:(NSInteger)row {
+    (void)tableView;
+    if ([[column identifier] isEqualToString:@"selected"] && row >= 0 &&
+        static_cast<size_t>(row) < selected_.size()) {
+        const auto& source = (*sources_)[static_cast<size_t>(row)];
+        const bool hasRecordingInput = source.kind != SourceKind::Channel ||
+            (!source.source_group.empty() && source.source_group != "OFF" && source.source_input > 0);
+        selected_[static_cast<size_t>(row)] = hasRecordingInput && [value boolValue] == YES;
+        [tableView reloadDataForRowIndexes:[NSIndexSet indexSetWithIndex:row]
+                            columnIndexes:[NSIndexSet indexSetWithIndex:0]];
+    }
+}
+
+- (void)applySelectionTo:(std::vector<WingConnector::ChannelSelectionInfo>&)sources {
+    const size_t count = std::min(sources.size(), selected_.size());
+    for (size_t index = 0; index < count; ++index) {
+        sources[index].selected = selected_[index];
+    }
+}
+
+@end
+
 extern "C" {
 
 bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>& channels,
@@ -172,94 +289,72 @@ bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>
         int maxHeight = 400;
         int scrollHeight = std::min(numChannels * rowHeight + 20, maxHeight);
 
-        // Create scrollable view for checkboxes
+        // Create a native table so source identity, name, input routing, and
+        // capability remain aligned and individually understandable.
         NSScrollView* scrollView = [[[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight)] autorelease];
         [scrollView setHasVerticalScroller:YES];
         [scrollView setHasHorizontalScroller:NO];
         [scrollView setBorderType:NSBezelBorder];
+        NSTableView* tableView = [[[NSTableView alloc] initWithFrame:NSMakeRect(0, 0, 480, scrollHeight)] autorelease];
+        [tableView setRowHeight:22.0];
+        [tableView setUsesAlternatingRowBackgroundColors:YES];
+        [tableView setAllowsMultipleSelection:NO];
 
-        // Document view to hold all checkboxes
-        NSView* documentView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 480, numChannels * rowHeight)] autorelease];
+        NSTableColumn* selectedColumn = [[[NSTableColumn alloc] initWithIdentifier:@"selected"] autorelease];
+        [[selectedColumn headerCell] setStringValue:@""];
+        [selectedColumn setWidth:34];
+        [selectedColumn setEditable:YES];
+        NSButtonCell* checkboxCell = [[[NSButtonCell alloc] init] autorelease];
+        [checkboxCell setButtonType:NSButtonTypeSwitch];
+        [checkboxCell setTitle:@""];
+        [selectedColumn setDataCell:checkboxCell];
+        [tableView addTableColumn:selectedColumn];
 
-        // Create checkbox array to track user selections
-        NSMutableArray* checkboxes = [NSMutableArray arrayWithCapacity:numChannels];
-
-        // Add checkbox for each channel
-        int yPos = numChannels * rowHeight - rowHeight;
-        for (int i = 0; i < numChannels; i++) {
-            const auto& ch = channels[i];
-            NSString* kindLabel = @"SRC";
-            switch (ch.kind) {
-                case SourceKind::Channel: kindLabel = @"CH"; break;
-                case SourceKind::Bus: kindLabel = @"BUS"; break;
-                case SourceKind::Main: kindLabel = @"MAIN"; break;
-                case SourceKind::Matrix: kindLabel = @"MTX"; break;
-            }
-            const std::string display_name = ch.name.empty()
-                ? (std::string([kindLabel UTF8String]) + " " + std::to_string(ch.source_number))
-                : ch.name;
-
-            // Create title showing channel info
-            NSString* title = nil;
-            if (ch.stereo_linked && !ch.partner_source_group.empty()) {
-                title = [NSString stringWithFormat:@"%@%02d  %s  [%s%d / %s%d]%s",
-                         kindLabel,
-                         ch.source_number,
-                         display_name.c_str(),
-                         ch.source_group.c_str(),
-                         ch.source_input,
-                         ch.partner_source_group.c_str(),
-                         ch.partner_source_input,
-                         ch.soundcheck_capable ? "" : " [Record only]"];
-            } else {
-                title = [NSString stringWithFormat:@"%@%02d  %s  [%s%d]%s%s",
-                         kindLabel,
-                         ch.source_number,
-                         display_name.c_str(),
-                         ch.source_group.c_str(),
-                         ch.source_input,
-                         ch.stereo_linked ? " [Stereo]" : "",
-                         ch.soundcheck_capable ? "" : " [Record only]"];
-            }
-
-            NSButton* checkbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, yPos, 460, 20)] autorelease];
-            [checkbox setButtonType:NSButtonTypeSwitch];
-            [checkbox setTitle:title];
-            [checkbox setState:ch.selected ? NSControlStateValueOn : NSControlStateValueOff];
-
-            [documentView addSubview:checkbox];
-            [checkboxes addObject:checkbox];
-
-            yPos -= rowHeight;
+        const std::array<NSString*, 4> identifiers{@"source", @"name", @"input", @"capability"};
+        const std::array<NSString*, 4> titles{@"Source", @"Name", @"Console Input", @"Capability"};
+        const std::array<CGFloat, 4> widths{62.0, 120.0, 170.0, 94.0};
+        for (size_t columnIndex = 0; columnIndex < identifiers.size(); ++columnIndex) {
+            NSTableColumn* column = [[[NSTableColumn alloc] initWithIdentifier:identifiers[columnIndex]] autorelease];
+            [[column headerCell] setStringValue:titles[columnIndex]];
+            [column setWidth:widths[columnIndex]];
+            [column setEditable:NO];
+            [tableView addTableColumn:column];
         }
 
-        [scrollView setDocumentView:documentView];
-        NSClipView* clipView = [scrollView contentView];
-        NSRect clipBounds = [clipView bounds];
-        NSRect documentBounds = [documentView bounds];
-        CGFloat topOffset = std::max<CGFloat>(0.0, NSMaxY(documentBounds) - NSHeight(clipBounds));
-        [clipView scrollToPoint:NSMakePoint(0, topOffset)];
-        [scrollView reflectScrolledClipView:clipView];
+        WingSourceTableModel* tableModel = [[[WingSourceTableModel alloc] initWithSources:&channels] autorelease];
+        [tableView setDataSource:tableModel];
+        [scrollView setDocumentView:tableView];
 
         // Create container view for scroll view + options
-        NSView* containerView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight + 70)] autorelease];
+        NSView* containerView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight + 126)] autorelease];
 
         // Position scroll view at top of container
-        [scrollView setFrameOrigin:NSMakePoint(0, 70)];
+        [scrollView setFrameOrigin:NSMakePoint(0, 126)];
         [containerView addSubview:scrollView];
 
-        // Add soundcheck mode checkbox at bottom
-        NSButton* overwriteCheckbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 36, 480, 20)] autorelease];
+        NSButton* overwriteCheckbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 92, 480, 20)] autorelease];
         [overwriteCheckbox setButtonType:NSButtonTypeSwitch];
         [overwriteCheckbox setTitle:@"Replace all existing REAPER tracks when applying this source selection"];
         [overwriteCheckbox setState:overwrite_existing ? NSControlStateValueOn : NSControlStateValueOff];
         [containerView addSubview:overwriteCheckbox];
 
-        NSButton* soundcheckCheckbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 10, 480, 20)] autorelease];
+        NSButton* soundcheckCheckbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 66, 480, 20)] autorelease];
         [soundcheckCheckbox setButtonType:NSButtonTypeSwitch];
-        [soundcheckCheckbox setTitle:@"Configure soundcheck mode for selected channels only (ALT + REAPER playback inputs)"];
+        [soundcheckCheckbox setTitle:@"Soundcheck + Recording (prepare WING ALT playback inputs)"];
         [soundcheckCheckbox setState:setup_soundcheck ? NSControlStateValueOn : NSControlStateValueOff];
         [containerView addSubview:soundcheckCheckbox];
+
+        NSTextField* modeHelp = [[[NSTextField alloc] initWithFrame:NSMakeRect(30, 4, 450, 56)] autorelease];
+        [modeHelp setStringValue:@"If you deselect a previously managed source, Soundcheck + Recording clears its existing WING ALT mapping during apply. Recording Only leaves existing ALT mappings unchanged, so clear them on WING or apply a Soundcheck + Recording setup when cleanup is required. Buses and matrices are always record-only."];
+        [modeHelp setEditable:NO];
+        [modeHelp setSelectable:NO];
+        [modeHelp setBezeled:NO];
+        [modeHelp setDrawsBackground:NO];
+        [modeHelp setTextColor:[NSColor secondaryLabelColor]];
+        [modeHelp setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+        [[modeHelp cell] setWraps:YES];
+        [[modeHelp cell] setScrollable:NO];
+        [containerView addSubview:modeHelp];
 
         [alert setAccessoryView:containerView];
 
@@ -271,11 +366,7 @@ bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>
         NSInteger result = [alert runModal];
 
         if (result == NSAlertFirstButtonReturn) {
-            // OK clicked - update selection states
-            for (int i = 0; i < numChannels; i++) {
-                NSButton* checkbox = [checkboxes objectAtIndex:i];
-                channels[i].selected = ([checkbox state] == NSControlStateValueOn);
-            }
+            [tableModel applySelectionTo:channels];
             // Update soundcheck mode option
             setup_soundcheck = ([soundcheckCheckbox state] == NSControlStateValueOn);
             overwrite_existing = ([overwriteCheckbox state] == NSControlStateValueOn);
@@ -1127,7 +1218,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
     [settingsTabView addTabViewItem:wingTabItemRef];
 
     controlIntegrationTabItem = [[NSTabViewItem alloc] initWithIdentifier:@"control-integration"];
-    [controlIntegrationTabItem setLabel:@"Control Integration"];
+    [controlIntegrationTabItem setLabel:@"Integration"];
     [controlIntegrationTabItem setView:advancedTabScrollView];
     [settingsTabView addTabViewItem:controlIntegrationTabItem];
 
@@ -1454,11 +1545,11 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
     [autoRecordModeControl setTarget:self];
     [autoRecordModeControl setAction:@selector(onAutoRecordSettingsChanged:)];
     [automationTabView addSubview:autoRecordModeControl];
-    autoY -= 28;
-    addInfoLabel(automationTabView, NSMakeRect(controlX, autoY, 360, 28),
-                 @"Warning flashes Wing controls when the trigger fires. Record also starts and stops recording automatically when the moment arrives.",
+    autoY -= 48;
+    addInfoLabel(automationTabView, NSMakeRect(controlX, autoY, 390, 48),
+                 @"WARNING alerts on the configured WING control layer but never starts REAPER recording. RECORD starts REAPER at the threshold and stops that plugin-started recording after the signal stays below it for the hold time. WING recorder follow is separate.",
                  10, [NSColor tertiaryLabelColor]);
-    autoY -= 40;
+    autoY -= 60;
 
     NSTextField* thresholdLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(labelX, autoY + 8, labelW, 20)];
     [thresholdLabel setStringValue:@"Trigger Threshold:"];
@@ -2285,7 +2376,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
     [consoleTabItem setLabel:@"Console"];
     [reaperTabItem setLabel:@"Reaper"];
     [wingTabItemRef setLabel:@"Wing"];
-    [controlIntegrationTabItem setLabel:@"Control Integration"];
+    [controlIntegrationTabItem setLabel:@"Integration"];
 
     setTabStatus(consoleTabStatusLabel, consoleText, consoleColor);
     setTabStatus(reaperTabStatusLabel, reaperText, reaperColor);
@@ -3743,7 +3834,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
     config.auto_record_enabled = ([autoRecordEnableControl selectedSegment] == 1);
     config.auto_record_warning_only = ([autoRecordModeControl selectedSegment] == 0);
     config.auto_record_threshold_db = [[thresholdField stringValue] doubleValue];
-    const double hold_seconds = std::max(0.0, [[holdField stringValue] doubleValue]);
+    const double hold_seconds = std::clamp([[holdField stringValue] doubleValue], 1.0, 600.0);
     config.auto_record_hold_ms = (int)std::lround(hold_seconds * 1000.0);
     NSMenuItem* selectedTrackItem = [monitorTrackDropdown selectedItem];
     config.auto_record_monitor_track = selectedTrackItem ? (int)[selectedTrackItem tag] : 0;
@@ -3839,7 +3930,9 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
                 }
             }
             for (auto& channel : channels) {
-                channel.selected = pendingIds.count(pendingSourceId(channel)) > 0;
+                const bool hasRecordingInput = channel.kind != SourceKind::Channel ||
+                    (!channel.source_group.empty() && channel.source_group != "OFF" && channel.source_input > 0);
+                channel.selected = hasRecordingInput && pendingIds.count(pendingSourceId(channel)) > 0;
             }
         }
 
