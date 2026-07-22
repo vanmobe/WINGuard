@@ -59,12 +59,7 @@ At runtime WINGuard resolves `config.json` in this order:
 1. REAPER `UserPlugins/config.json`
 2. `~/.wingconnector/config.json`
 
-What this means in practice:
-
-- Packaged installs normally use the `UserPlugins` copy because that is where the installer places the plugin and expected companion config.
-- If the `UserPlugins` config is missing, WINGuard falls back to the home-directory config instead.
-- If both copies exist, the `UserPlugins` copy wins.
-- On Windows, `~/.wingconnector/config.json` maps to the current user's profile directory.
+If both copies exist, the `UserPlugins` copy wins.
 
 ## First Run
 
@@ -72,14 +67,9 @@ What this means in practice:
 2. Enter or discover the WING IP address.
 3. Fetch channels and confirm track creation. WINGuard uses the fixed WING OSC runtime port `2223`.
 
-Useful shortcuts:
-
-- Main action: `Cmd+Shift+W` on macOS, `Ctrl+Shift+W` on Windows
-- Existing-project adoption: `Cmd+Shift+I` on macOS, `Ctrl+Shift+I` on Windows
-
 ## Verify Installation
 
-- `WINGuard` actions appear in the REAPER Actions list when you search for `WINGuard`.
+- `WINGuard` actions appear in the REAPER Actions list.
 - Plugin binary exists in your `UserPlugins` directory.
 - Connection to WING succeeds without OSC timeout errors.
 
@@ -90,7 +80,6 @@ WING CC button assignments are pushed by the plugin when `Assign MIDI shortcuts 
 For mapping details (and legacy manual fallback), see:
 
 - [docs/CC_BUTTONS_AND_AUTO_TRIGGER.md](docs/CC_BUTTONS_AND_AUTO_TRIGGER.md)
-- [snapshots/README.md](snapshots/README.md)
 
 ## Where To Go Next
 
@@ -105,6 +94,6 @@ Remove plugin and config from your REAPER `UserPlugins` path:
 - macOS: `reaper_wingconnector.dylib`, `config.json`
 - Windows: `reaper_wingconnector.dll`, `config.json`
 
-If behavior still persists after removing the `UserPlugins` copy, also check for a fallback config in `~/.wingconnector/config.json`.
+If behavior persists, also check for a fallback config in `~/.wingconnector/config.json`.
 
 Then restart REAPER.

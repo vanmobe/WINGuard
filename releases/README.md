@@ -15,7 +15,7 @@ Primary distribution is via GitHub Releases:
 
 Tagged pushes (`v*`) trigger `.github/workflows/release.yml`, which:
 
-1. Builds plugin on macOS/Windows
+1. Builds the plugin on macOS and Windows
 2. Creates installer packages per platform
 3. Publishes assets to the GitHub release for that tag
 

@@ -74,6 +74,14 @@ jobs:
         shell: pwsh
         run: ./packaging/validate_windows_binary.ps1 -PluginPath stage/reaper_wingconnector.dll
 
+      - name: Validate Windows UI layout scaling
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cmake -S . -B build-ui-tests -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-ui-tests --config Release --target windows_ui_layout_tests -j 4
+          ctest --test-dir build-ui-tests -C Release -R '^windows_ui_layout_tests$' --output-on-failure
+
       - name: Upload staged artifact
         uses: actions/upload-artifact@v4
         with:

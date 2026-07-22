@@ -1,6 +1,6 @@
 /*
- * macOS native WINGuard dialog header.
- * Consolidated dialog for all WINGuard operations.
+ * macOS Native AUDIOLAB.wing.reaper.virtualsoundcheck Dialog Header
+ * Consolidated dialog for all AUDIOLAB.wing.reaper.virtualsoundcheck operations
  */
 
 #ifndef WING_CONNECTOR_DIALOG_MACOS_H
@@ -10,7 +10,6 @@
 
 #include <vector>
 #include <string>
-#include "internal/adoption_editor.h"
 #include "reaper_extension.h"  // For ChannelSelectionInfo (from wingconnector/)
 
 // Dialog result enum
@@ -24,10 +23,10 @@ enum class DialogAction {
     Close
 };
 
-// Main WINGuard dialog
+// Main AUDIOLAB.wing.reaper.virtualsoundcheck Dialog
 // This is a modeless window that stays open
 extern "C" {
-    // Show the main WINGuard dialog.
+    // Show the main AUDIOLAB.wing.reaper.virtualsoundcheck dialog
     // Returns the action the user wants to perform
     void ShowWingConnectorDialog();
     void ShowWingConnectorDialogAtTab(const char* tab_identifier);
@@ -45,6 +44,16 @@ extern "C" {
                                    bool& setup_soundcheck,
                                    bool& overwrite_existing);
 }
+
+struct AdoptionEditorRow {
+    int track_index = 0;
+    std::string track_name;
+    bool stereo_like = false;
+    int suggested_channel = 0;
+    int assigned_channel = 0;
+    int suggested_slot_start = 0;
+    int suggested_slot_end = 0;
+};
 
 extern "C" {
     bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& rows,

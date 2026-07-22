@@ -11,7 +11,7 @@ This repository contains a C++17 REAPER extension that connects to a Behringer W
 - Prefer small, targeted changes over broad refactors.
 - Maintain cross-platform behavior:
   - macOS uses native Objective-C++ dialogs.
-  - Windows/Linux use the fallback dialog bridge.
+  - Windows uses native Win32 dialogs routed through the dialog bridge.
 - Do not migrate away from `config.json` unless explicitly asked. The runtime currently loads and saves JSON config through `src/utilities/wing_config.cpp`.
 
 ## Code Map
@@ -25,7 +25,7 @@ This repository contains a C++17 REAPER extension that connects to a Behringer W
 - `src/utilities/`
   - config, logging, platform helpers, string helpers
 - `src/ui/`
-  - macOS native dialogs and cross-platform fallback bridge
+  - platform dialog bridge plus native macOS and Windows dialogs
 
 ## Key Files
 
@@ -41,7 +41,7 @@ This repository contains a C++17 REAPER extension that connects to a Behringer W
 ## Build And Validation
 
 - Setup dependencies: `./setup_dependencies.sh`
-- Build on macOS/Linux: `./build.sh`
+- Build on macOS: `./build.sh`
 - Build on Windows: `build.bat`
 - Minimum validation bar after non-trivial changes: successful build
 - After code changes that produce a new plugin binary, rebuild and install the resulting plugin into `~/Library/Application Support/REAPER/UserPlugins/reaper_wingconnector.dylib` by default so the latest build is ready for manual REAPER testing unless the user explicitly says not to install it.

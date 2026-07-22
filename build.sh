@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build script for AUDIOLAB.wing.reaper.virtualsoundcheck Reaper Extension
-# Supports macOS and Windows (via MSYS/MinGW/WSL shell on Windows)
+# Supports macOS and Windows (via MSYS/MinGW/Cygwin shell on Windows)
 
 set -e
 
@@ -15,15 +15,14 @@ OS="$(uname -s)"
 case "${OS}" in
     Darwin*)    PLATFORM=macOS;;
     MINGW*|MSYS*|CYGWIN*) PLATFORM=Windows;;
-    Linux*)     PLATFORM=Unsupported;;
-    *)          PLATFORM="Unknown";;
+    *)          PLATFORM=Unsupported;;
 esac
 
 echo "Platform: ${PLATFORM}"
 echo ""
 
 if [ "${PLATFORM}" == "Unsupported" ]; then
-    echo "Error: Linux is no longer a supported build target for this project."
+    echo "Error: unsupported build platform. Use macOS or Windows."
     exit 1
 fi
 

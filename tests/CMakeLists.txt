@@ -39,6 +39,10 @@ add_executable(stereo_channel_plan_tests
     stereo_channel_plan_tests.cpp
 )
 
+add_executable(windows_ui_layout_tests
+    windows_ui_layout_tests.cpp
+)
+
 add_executable(wing_osc_probe
     osc_probe.cpp
 )
@@ -115,6 +119,12 @@ target_include_directories(stereo_channel_plan_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/../include/internal
 )
 
+target_include_directories(windows_ui_layout_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include/internal
+)
+
 target_include_directories(wing_osc_probe
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
@@ -145,6 +155,7 @@ target_include_directories(osc_write_tool
 if(MSVC)
     target_compile_options(source_monitor_tests PRIVATE /W4 /WX-)
     target_compile_options(soundcheck_state_tests PRIVATE /W4 /WX-)
+    target_compile_options(windows_ui_layout_tests PRIVATE /W4 /WX-)
     target_compile_options(wing_osc_probe PRIVATE /W4 /WX-)
 else()
     target_compile_options(source_monitor_tests PRIVATE -Wall -Wextra -Wpedantic -Wno-error)
@@ -156,6 +167,7 @@ else()
     target_compile_options(osc_builder_tests PRIVATE -Wall -Wextra -Wpedantic -Wno-error)
     target_compile_options(source_input_mode_plan_tests PRIVATE -Wall -Wextra -Wpedantic -Wno-error)
     target_compile_options(stereo_channel_plan_tests PRIVATE -Wall -Wextra -Wpedantic -Wno-error)
+    target_compile_options(windows_ui_layout_tests PRIVATE -Wall -Wextra -Wpedantic -Wno-error)
     target_compile_options(wing_osc_probe PRIVATE -Wall -Wextra -Wpedantic -Wno-error)
 endif()
 
@@ -204,3 +216,4 @@ add_test(NAME wing_config_tests COMMAND wing_config_tests)
 add_test(NAME osc_builder_tests COMMAND osc_builder_tests)
 add_test(NAME source_input_mode_plan_tests COMMAND source_input_mode_plan_tests)
 add_test(NAME stereo_channel_plan_tests COMMAND stereo_channel_plan_tests)
+add_test(NAME windows_ui_layout_tests COMMAND windows_ui_layout_tests)
