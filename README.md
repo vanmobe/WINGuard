@@ -72,9 +72,14 @@ See [QUICKSTART.md](QUICKSTART.md) for the 5-minute flow.
 Prerequisites:
 
 - CMake 3.15+
-- C++17 compiler
+- C++17 compiler (on Windows, Visual Studio 2022 or Build Tools with the
+  **Desktop development with C++** workload, MSVC, and a Windows SDK)
+- Git, unless `oscpack` is downloaded as a source ZIP
 - REAPER SDK headers in `lib/reaper-sdk/`
 - `oscpack` sources in `lib/oscpack/`
+
+See [SETUP.md](SETUP.md) for platform-specific installation commands,
+dependency download links, required directory layout, and troubleshooting.
 
 Build:
 
