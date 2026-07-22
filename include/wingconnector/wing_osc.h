@@ -47,6 +47,7 @@ struct ManagedChannelInputState {
     std::string source_group;
     int source_input = 0;
     bool stereo_linked = false;
+    bool stereo_readable = false;
     bool readable = false;
 };
 

@@ -22,6 +22,7 @@ ManagedChannelInputState MakeState(int channel_number,
     state.source_group = group;
     state.source_input = input;
     state.stereo_linked = stereo;
+    state.stereo_readable = readable;
     state.readable = readable;
     return state;
 }
@@ -125,7 +126,7 @@ void TestUnreadablePollIsMaskedBeforeThreshold() {
     Expect(filtered.cycle_degraded, "single managed channel miss should count as a degraded cycle");
 }
 
-void TestUnreadablePollWarnsAfterThreshold() {
+void TestUnreadablePollKeepsLastConfirmedStateAfterThreshold() {
     const std::map<int, ManagedChannelInputState> previous{{8, MakeState(8, "A", 8, false)}};
     const std::map<int, ManagedChannelInputState> current{{8, MakeState(8, "", 0, false, false)}};
     const auto filtered = WingConnector::ManagedSourceMonitor::ApplyTransientReadabilityFilter(
@@ -137,10 +138,44 @@ void TestUnreadablePollWarnsAfterThreshold() {
         2);
     auto filtered_it = filtered.snapshot.find(8);
     Expect(filtered_it != filtered.snapshot.end(), "threshold snapshot should still contain the channel");
-    Expect(!filtered_it->second.readable, "third unreadable poll should stop masking the failure");
+    Expect(filtered_it->second.readable, "missing UDP replies must not replace the last confirmed state");
     const auto decision = ClassifyChange(previous, filtered.snapshot);
-    Expect(decision.action == Action::WarnInvalidSource, "failure threshold should re-expose the invalid-source warning");
-    ExpectChannels(decision.changed_channels, {8}, "threshold warning should identify the affected channel");
+    Expect(decision.action == Action::None, "missing replies must not produce an invalid-source warning");
+}
+
+void TestTransientExplicitOffIsMasked() {
+    const std::map<int, ManagedChannelInputState> previous{{4, MakeState(4, "A", 4, false)}};
+    const std::map<int, ManagedChannelInputState> current{{4, MakeState(4, "OFF", 0, false)}};
+    const auto filtered = WingConnector::ManagedSourceMonitor::ApplyTransientReadabilityFilter(
+        previous, current, {}, 0, 3, 2);
+    Expect(filtered.snapshot.at(4).source_group == "A",
+           "first explicit OFF poll should preserve the last confirmed source");
+    Expect(ClassifyChange(previous, filtered.snapshot).action == Action::None,
+           "first explicit OFF poll should not warn");
+}
+
+void TestConfirmedExplicitOffWarns() {
+    const std::map<int, ManagedChannelInputState> previous{{4, MakeState(4, "A", 4, false)}};
+    const std::map<int, ManagedChannelInputState> current{{4, MakeState(4, "OFF", 0, false)}};
+    const auto filtered = WingConnector::ManagedSourceMonitor::ApplyTransientReadabilityFilter(
+        previous, current, {{4, 2}}, 0, 3, 2);
+    Expect(filtered.snapshot.at(4).source_group == "OFF",
+           "third explicit OFF poll should expose the confirmed state");
+    Expect(ClassifyChange(previous, filtered.snapshot).action == Action::WarnInvalidSource,
+           "confirmed explicit OFF state should warn");
+}
+
+void TestMissingStereoModeKeepsLastConfirmedTopology() {
+    const std::map<int, ManagedChannelInputState> previous{{12, MakeState(12, "A", 12, true)}};
+    auto current_state = MakeState(12, "A", 12, false);
+    current_state.stereo_readable = false;
+    const std::map<int, ManagedChannelInputState> current{{12, current_state}};
+    const auto filtered = WingConnector::ManagedSourceMonitor::ApplyTransientReadabilityFilter(
+        previous, current, {}, 0, 3, 2);
+    Expect(filtered.snapshot.at(12).stereo_linked,
+           "missing mode reply should preserve the last confirmed stereo topology");
+    Expect(ClassifyChange(previous, filtered.snapshot).action == Action::None,
+           "missing mode reply should not produce a topology warning");
 }
 
 void TestFullCycleGlitchUsesCycleGrace() {
@@ -173,11 +208,14 @@ int main() {
     TestStereoSourceChangeReapplies();
     TestTopologyChangeWarns();
     TestInvalidSourceWarns();
+    TestTransientExplicitOffIsMasked();
+    TestConfirmedExplicitOffWarns();
     TestUnreadableSourceWarns();
     TestMixedChangesPreferWarning();
     TestBootstrapDoesNotTrigger();
     TestUnreadablePollIsMaskedBeforeThreshold();
-    TestUnreadablePollWarnsAfterThreshold();
+    TestUnreadablePollKeepsLastConfirmedStateAfterThreshold();
+    TestMissingStereoModeKeepsLastConfirmedTopology();
     TestFullCycleGlitchUsesCycleGrace();
 
     std::cout << "source_monitor_tests: OK\n";

@@ -64,7 +64,7 @@ inline FilterResult ApplyTransientReadabilityFilter(
     }
 
     for (const auto& [channel_number, current_state] : current) {
-        if (current_state.readable) {
+        if (IsValidState(current_state)) {
             result.unreadable_counts[channel_number] = 0;
             continue;
         }
@@ -77,12 +77,27 @@ inline FilterResult ApplyTransientReadabilityFilter(
 
         const int consecutive_failures = result.unreadable_counts[channel_number] + 1;
         result.unreadable_counts[channel_number] = consecutive_failures;
-        const bool within_cycle_grace =
-            result.cycle_degraded && result.degraded_cycle_count < degraded_cycle_threshold;
-        if (within_cycle_grace || consecutive_failures < per_channel_threshold) {
+        // A partial UDP reply is not evidence that routing changed. Explicit
+        // invalid/OFF values can also appear briefly while the WING updates
+        // related fields, so require consecutive confirmations before exposing
+        // the state to the change classifier.
+        if (!current_state.readable || consecutive_failures < per_channel_threshold) {
             result.snapshot[channel_number] = previous_it->second;
         }
     }
+
+    for (auto& [channel_number, current_state] : result.snapshot) {
+        auto previous_it = previous.find(channel_number);
+        if (current_state.readable && !current_state.stereo_readable &&
+            previous_it != previous.end() && IsValidState(previous_it->second) &&
+            current_state.source_group == previous_it->second.source_group &&
+            current_state.source_input == previous_it->second.source_input) {
+            current_state.stereo_linked = previous_it->second.stereo_linked;
+            current_state.stereo_readable = previous_it->second.stereo_readable;
+        }
+    }
+
+    (void)degraded_cycle_threshold;
 
     return result;
 }

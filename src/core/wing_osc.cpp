@@ -289,8 +289,19 @@ std::map<std::string, DirectOscReply> QueryOscAddressesDirectRaw(const std::stri
                                                                  const std::vector<std::string>& addresses,
                                                                  int total_timeout_ms = kBurstTotalTimeoutMs,
                                                                  int idle_timeout_ms = kBurstIdleTimeoutMs) {
+    // Several extension monitors can query the desk from different threads.
+    // Keep each temporary-port request/reply transaction intact so their
+    // bursts do not compete for the WING's OSC response capacity.
+    static std::mutex direct_query_mutex;
+    std::lock_guard<std::mutex> query_lock(direct_query_mutex);
+
     std::map<std::string, DirectOscReply> replies;
     if (addresses.empty()) {
+        return replies;
+    }
+    std::set<std::string> unique_addresses(addresses.begin(), addresses.end());
+    unique_addresses.erase("");
+    if (unique_addresses.empty()) {
         return replies;
     }
 
@@ -307,35 +318,48 @@ std::map<std::string, DirectOscReply> QueryOscAddressesDirectRaw(const std::stri
         local_port = ntohs(local_addr.sin_port);
     }
 
-    for (const auto& address : addresses) {
+    for (const auto& address : unique_addresses) {
         if (address.empty()) {
             continue;
         }
         SendOscQueryPacket(sock, dest, address, local_port);
     }
 
-    const auto started = std::chrono::steady_clock::now();
-    auto last_reply = started;
-    while (true) {
-        DirectOscReply reply;
-        if (TryReceiveDirectOscReply(sock, reply)) {
-            replies[reply.address] = reply;
-            last_reply = std::chrono::steady_clock::now();
-            if (static_cast<int>(replies.size()) >= static_cast<int>(addresses.size())) {
+    auto receive_replies = [&]() {
+        const auto started = std::chrono::steady_clock::now();
+        auto last_reply = started;
+        while (true) {
+            DirectOscReply reply;
+            if (TryReceiveDirectOscReply(sock, reply)) {
+                replies[reply.address] = reply;
+                last_reply = std::chrono::steady_clock::now();
+                if (replies.size() >= unique_addresses.size()) {
+                    break;
+                }
+                continue;
+            }
+
+            const auto now = std::chrono::steady_clock::now();
+            const auto total_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - started).count();
+            const auto idle_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_reply).count();
+            if (total_elapsed >= total_timeout_ms ||
+                (!replies.empty() && idle_elapsed >= idle_timeout_ms)) {
                 break;
             }
-            continue;
         }
+    };
 
-        const auto now = std::chrono::steady_clock::now();
-        const auto total_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - started).count();
-        const auto idle_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_reply).count();
-        if (total_elapsed >= total_timeout_ms) {
-            break;
+    receive_replies();
+
+    // UDP can lose an individual reply even while the rest of a batch arrives.
+    // Retry only the missing paths once, using the same reply port.
+    if (replies.size() < unique_addresses.size()) {
+        for (const auto& address : unique_addresses) {
+            if (!address.empty() && replies.find(address) == replies.end()) {
+                SendOscQueryPacket(sock, dest, address, local_port);
+            }
         }
-        if (!replies.empty() && idle_elapsed >= idle_timeout_ms) {
-            break;
-        }
+        receive_replies();
     }
 
     CloseNativeSocket(sock);
@@ -1001,6 +1025,22 @@ std::map<int, ManagedChannelInputState> WingOSC::QueryManagedChannelInputStatesD
 
     const auto groups = QueryStringAddressesDirect(string_addresses, 140, 20);
     const auto inputs = QueryIntAddressesDirect(int_addresses, 140, 20);
+    std::vector<std::string> mode_addresses;
+    std::map<int, std::string> channel_mode_paths;
+    for (int channel_number : channel_numbers) {
+        const std::string ch = FormatChannelNum(channel_number);
+        const auto group_it = groups.find("/ch/" + ch + "/in/conn/grp");
+        const auto input_it = inputs.find("/ch/" + ch + "/in/conn/in");
+        if (group_it == groups.end() || input_it == inputs.end() ||
+            group_it->second.empty() || group_it->second == "OFF" || input_it->second <= 0) {
+            continue;
+        }
+        const std::string mode_path = "/io/in/" + group_it->second + "/" +
+                                      std::to_string(input_it->second) + "/mode";
+        channel_mode_paths[channel_number] = mode_path;
+        mode_addresses.push_back(mode_path);
+    }
+    const auto modes = QueryStringAddressesDirect(mode_addresses, 180, 30);
     for (int channel_number : channel_numbers) {
         if (channel_number <= 0) {
             continue;
@@ -1022,9 +1062,13 @@ std::map<int, ManagedChannelInputState> WingOSC::QueryManagedChannelInputStatesD
         state.source_input = input_it->second;
         state.readable = true;
 
-        if (!state.source_group.empty() && state.source_group != "OFF" && state.source_input > 0) {
-            const std::string mode = QueryInputModeDirect(state.source_group, state.source_input);
-            state.stereo_linked = (mode == "ST" || mode == "MS");
+        auto mode_path_it = channel_mode_paths.find(channel_number);
+        if (mode_path_it != channel_mode_paths.end()) {
+            auto mode_it = modes.find(mode_path_it->second);
+            if (mode_it != modes.end()) {
+                state.stereo_linked = (mode_it->second == "ST" || mode_it->second == "MS");
+                state.stereo_readable = true;
+            }
         }
 
         states[channel_number] = state;

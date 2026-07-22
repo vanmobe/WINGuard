@@ -2251,10 +2251,8 @@ void ReaperExtension::ManagedSourceMonitorLoop() {
         degraded_cycle_count = filtered_snapshot.degraded_cycle_count;
 
         if (filtered_snapshot.cycle_degraded) {
-            if (degraded_cycle_count == 1) {
-                Log("WINGuard: Managed polling missed a full cycle. Waiting for another poll before warning.\n");
-            }
-            if (degraded_cycle_count >= kManagedSourceDegradedCycleThreshold) {
+            if (degraded_cycle_count == kManagedSourceDegradedCycleThreshold) {
+                Log("WINGuard: Managed polling is degraded; retaining the last confirmed routing.\n");
                 status_message_ = "WING polling degraded";
             }
         } else {
@@ -2865,6 +2863,7 @@ std::map<int, ManagedChannelInputState> BuildChannelInputStateMap(const std::map
         state.source_group = ch.primary_source_group;
         state.source_input = ch.primary_source_input;
         state.stereo_linked = ch.stereo_linked;
+        state.stereo_readable = true;
         state.readable = !ch.primary_source_group.empty() && ch.primary_source_input > 0;
         states[channel_number] = state;
     }
