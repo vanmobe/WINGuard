@@ -161,7 +161,7 @@ bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>
                                 bool& setup_soundcheck,
                                 bool& overwrite_existing) {
     @autoreleasepool {
-        NSAlert* alert = [[NSAlert alloc] init];
+        NSAlert* alert = [[[NSAlert alloc] init] autorelease];
         [alert setMessageText:[NSString stringWithUTF8String:title]];
         [alert setInformativeText:[NSString stringWithUTF8String:description]];
         [alert setAlertStyle:NSAlertStyleInformational];
@@ -173,13 +173,13 @@ bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>
         int scrollHeight = std::min(numChannels * rowHeight + 20, maxHeight);
 
         // Create scrollable view for checkboxes
-        NSScrollView* scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight)];
+        NSScrollView* scrollView = [[[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight)] autorelease];
         [scrollView setHasVerticalScroller:YES];
         [scrollView setHasHorizontalScroller:NO];
         [scrollView setBorderType:NSBezelBorder];
 
         // Document view to hold all checkboxes
-        NSView* documentView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 480, numChannels * rowHeight)];
+        NSView* documentView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 480, numChannels * rowHeight)] autorelease];
 
         // Create checkbox array to track user selections
         NSMutableArray* checkboxes = [NSMutableArray arrayWithCapacity:numChannels];
@@ -222,7 +222,7 @@ bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>
                          ch.soundcheck_capable ? "" : " [Record only]"];
             }
 
-            NSButton* checkbox = [[NSButton alloc] initWithFrame:NSMakeRect(10, yPos, 460, 20)];
+            NSButton* checkbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, yPos, 460, 20)] autorelease];
             [checkbox setButtonType:NSButtonTypeSwitch];
             [checkbox setTitle:title];
             [checkbox setState:ch.selected ? NSControlStateValueOn : NSControlStateValueOff];
@@ -242,20 +242,20 @@ bool ShowChannelSelectionDialog(std::vector<WingConnector::ChannelSelectionInfo>
         [scrollView reflectScrolledClipView:clipView];
 
         // Create container view for scroll view + options
-        NSView* containerView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight + 70)];
+        NSView* containerView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, scrollHeight + 70)] autorelease];
 
         // Position scroll view at top of container
         [scrollView setFrameOrigin:NSMakePoint(0, 70)];
         [containerView addSubview:scrollView];
 
         // Add soundcheck mode checkbox at bottom
-        NSButton* overwriteCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(10, 36, 480, 20)];
+        NSButton* overwriteCheckbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 36, 480, 20)] autorelease];
         [overwriteCheckbox setButtonType:NSButtonTypeSwitch];
         [overwriteCheckbox setTitle:@"Replace all existing REAPER tracks when applying this source selection"];
         [overwriteCheckbox setState:overwrite_existing ? NSControlStateValueOn : NSControlStateValueOff];
         [containerView addSubview:overwriteCheckbox];
 
-        NSButton* soundcheckCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(10, 10, 480, 20)];
+        NSButton* soundcheckCheckbox = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 10, 480, 20)] autorelease];
         [soundcheckCheckbox setButtonType:NSButtonTypeSwitch];
         [soundcheckCheckbox setTitle:@"Configure soundcheck mode for selected channels only (ALT + REAPER playback inputs)"];
         [soundcheckCheckbox setState:setup_soundcheck ? NSControlStateValueOn : NSControlStateValueOff];
@@ -300,7 +300,10 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
         }
 
         while (true) {
-            NSAlert* alert = [[NSAlert alloc] init];
+            // Drain temporary Cocoa ownership after every retry, not only when
+            // the editor eventually returns from this function.
+            NSAutoreleasePool* iterationPool = [[NSAutoreleasePool alloc] init];
+            NSAlert* alert = [[[NSAlert alloc] init] autorelease];
             [alert setMessageText:@"Editable Existing Project Adoption"];
             [alert setInformativeText:@"Review or override the proposed channel mapping before applying. Slot overrides use Auto by default and only offer valid choices."];
             [alert setAlertStyle:NSAlertStyleInformational];
@@ -311,8 +314,8 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             const CGFloat width = 780.0;
             const CGFloat scrollHeight = std::min<CGFloat>(360.0, headerHeight + rows.size() * rowHeight + 12.0);
 
-            NSView* containerView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, width, scrollHeight + footerHeight)];
-            NSSegmentedControl* modeControl = [[NSSegmentedControl alloc] initWithFrame:NSMakeRect(12, 12, 180, 26)];
+            NSView* containerView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, width, scrollHeight + footerHeight)] autorelease];
+            NSSegmentedControl* modeControl = [[[NSSegmentedControl alloc] initWithFrame:NSMakeRect(12, 12, 180, 26)] autorelease];
             [modeControl setSegmentCount:2];
             [modeControl setLabel:@"USB" forSegment:0];
             [modeControl setLabel:@"CARD" forSegment:1];
@@ -320,14 +323,14 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             [modeControl setSelectedSegment:(initial_mode == "CARD") ? 1 : 0];
             [containerView addSubview:modeControl];
 
-            NSTextField* hintLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(210, 12, width - 222, 26)];
+            NSTextField* hintLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(210, 12, width - 222, 26)] autorelease];
             [hintLabel setEditable:NO];
             [hintLabel setBordered:NO];
             [hintLabel setDrawsBackground:NO];
             [hintLabel setStringValue:@"Channel changes are required only when you want a different WING channel than the suggestion."];
             [containerView addSubview:hintLabel];
 
-            NSTextField* warningLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(12, 44, width - 24, 20)];
+            NSTextField* warningLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(12, 44, width - 24, 20)] autorelease];
             [warningLabel setEditable:NO];
             [warningLabel setBordered:NO];
             [warningLabel setDrawsBackground:NO];
@@ -335,20 +338,20 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             [warningLabel setTextColor:[NSColor secondaryLabelColor]];
             [containerView addSubview:warningLabel];
 
-            NSScrollView* scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, footerHeight, width, scrollHeight)];
+            NSScrollView* scrollView = [[[NSScrollView alloc] initWithFrame:NSMakeRect(0, footerHeight, width, scrollHeight)] autorelease];
             [scrollView setHasVerticalScroller:YES];
             [scrollView setBorderType:NSBezelBorder];
 
             const CGFloat contentHeight = headerHeight + rows.size() * rowHeight;
-            NSView* documentView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, width - 18, contentHeight)];
+            NSView* documentView = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, width - 18, contentHeight)] autorelease];
 
             NSArray<NSString*>* headerTitles = @[@"Track", @"Stereo", @"Suggested", @"WING Channel", @"Suggested Slot", @"Slot Override"];
             NSArray<NSNumber*>* headerXs = @[@12.0, @250.0, @320.0, @420.0, @540.0, @650.0];
             for (NSInteger i = 0; i < (NSInteger)[headerTitles count]; ++i) {
-                NSTextField* label = [[NSTextField alloc] initWithFrame:NSMakeRect([[headerXs objectAtIndex:i] doubleValue],
-                                                                                    contentHeight - headerHeight + 4.0,
-                                                                                    (i == 0 ? 220.0 : 100.0),
-                                                                                    20.0)];
+                NSTextField* label = [[[NSTextField alloc] initWithFrame:NSMakeRect([[headerXs objectAtIndex:i] doubleValue],
+                                                                                      contentHeight - headerHeight + 4.0,
+                                                                                      (i == 0 ? 220.0 : 100.0),
+                                                                                      20.0)] autorelease];
                 [label setEditable:NO];
                 [label setBordered:NO];
                 [label setDrawsBackground:NO];
@@ -362,28 +365,28 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
 
             CGFloat y = contentHeight - headerHeight - rowHeight;
             for (const auto& row : rows) {
-                NSTextField* trackLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(12, y + 3.0, 260.0, 20.0)];
+                NSTextField* trackLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(12, y + 3.0, 260.0, 20.0)] autorelease];
                 [trackLabel setEditable:NO];
                 [trackLabel setBordered:NO];
                 [trackLabel setDrawsBackground:NO];
                 [trackLabel setStringValue:[NSString stringWithFormat:@"%d. %s", row.track_index, row.track_name.c_str()]];
                 [documentView addSubview:trackLabel];
 
-                NSTextField* stereoLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(250, y + 3.0, 60.0, 20.0)];
+                NSTextField* stereoLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(250, y + 3.0, 60.0, 20.0)] autorelease];
                 [stereoLabel setEditable:NO];
                 [stereoLabel setBordered:NO];
                 [stereoLabel setDrawsBackground:NO];
                 [stereoLabel setStringValue:row.stereo_like ? @"Stereo" : @"Mono"];
                 [documentView addSubview:stereoLabel];
 
-                NSTextField* suggestedLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(320, y + 3.0, 80.0, 20.0)];
+                NSTextField* suggestedLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(320, y + 3.0, 80.0, 20.0)] autorelease];
                 [suggestedLabel setEditable:NO];
                 [suggestedLabel setBordered:NO];
                 [suggestedLabel setDrawsBackground:NO];
                 [suggestedLabel setStringValue:[NSString stringWithFormat:@"CH%d", row.suggested_channel]];
                 [documentView addSubview:suggestedLabel];
 
-                NSPopUpButton* channelPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(420, y, 100.0, 26.0) pullsDown:NO];
+                NSPopUpButton* channelPopup = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(420, y, 100.0, 26.0) pullsDown:NO] autorelease];
                 for (int channel_number : available_channels) {
                     NSString* title = [NSString stringWithFormat:@"CH%d", channel_number];
                     [channelPopup addItemWithTitle:title];
@@ -393,7 +396,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
                 [documentView addSubview:channelPopup];
                 [channelControls addObject:channelPopup];
 
-                NSTextField* suggestedSlotLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(540, y + 3.0, 90.0, 20.0)];
+                NSTextField* suggestedSlotLabel = [[[NSTextField alloc] initWithFrame:NSMakeRect(540, y + 3.0, 90.0, 20.0)] autorelease];
                 [suggestedSlotLabel setEditable:NO];
                 [suggestedSlotLabel setBordered:NO];
                 [suggestedSlotLabel setDrawsBackground:NO];
@@ -408,7 +411,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
                 }
                 [documentView addSubview:suggestedSlotLabel];
 
-                NSPopUpButton* slotPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(650, y, 110.0, 26.0) pullsDown:NO];
+                NSPopUpButton* slotPopup = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(650, y, 110.0, 26.0) pullsDown:NO] autorelease];
                 [documentView addSubview:slotPopup];
                 [slotPopups addObject:slotPopup];
 
@@ -423,7 +426,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             [alert addButtonWithTitle:@"Cancel"];
             NSButton* applyButton = [[alert buttons] objectAtIndex:0];
 
-            AdoptionEditorCoordinator* coordinator = [[AdoptionEditorCoordinator alloc] init];
+            AdoptionEditorCoordinator* coordinator = [[[AdoptionEditorCoordinator alloc] init] autorelease];
             coordinator->rows = rows;
             coordinator->modeControl = modeControl;
             coordinator->warningLabel = warningLabel;
@@ -446,6 +449,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             const NSInteger result = [alert runModal];
             if (result != NSAlertFirstButtonReturn) {
                 apply_now_out = false;
+                [iterationPool drain];
                 return false;
             }
 
@@ -512,11 +516,12 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             }
 
             if (has_conflict) {
-                NSAlert* conflictAlert = [[NSAlert alloc] init];
+                NSAlert* conflictAlert = [[[NSAlert alloc] init] autorelease];
                 [conflictAlert setMessageText:@"Fix Adoption Conflicts"];
                 [conflictAlert setInformativeText:[NSString stringWithUTF8String:conflict_message.c_str()]];
                 [conflictAlert addButtonWithTitle:@"OK"];
                 [conflictAlert runModal];
+                [iterationPool drain];
                 continue;
             }
 
@@ -524,6 +529,7 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             channel_overrides_spec_out = channel_spec.str();
             slot_overrides_spec_out = slot_spec.str();
             apply_now_out = true;
+            [iterationPool drain];
             return true;
         }
     }
@@ -797,6 +803,9 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
 }
 
 - (void)dealloc {
+    // The extension outlives this modeless controller, so it must not retain a
+    // callback that can dispatch back to this object after teardown.
+    ReaperExtension::Instance().SetLogCallback({});
     [discoveredIPs release];
     // Release UI elements that we retain in instance variables
     [wingDropdown release];
@@ -2851,12 +2860,35 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
                                                  withString:@""];
     cleaned = [cleaned stringByReplacingOccurrencesOfString:@"WINGuard:"
                                                  withString:@""];
-    NSString* currentText = [activityLogView string];
-    NSString* newText = [currentText stringByAppendingString:cleaned];
-    [activityLogView setString:newText];
+    NSTextStorage* textStorage = [activityLogView textStorage];
+    NSFont* font = [activityLogView font];
+    if (!font) {
+        font = [NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightRegular];
+    }
+    NSColor* color = [activityLogView textColor];
+    if (!color) {
+        color = [NSColor labelColor];
+    }
+    NSDictionary* attributes = @{
+        NSFontAttributeName: font,
+        NSForegroundColorAttributeName: color
+    };
+    NSAttributedString* addition = [[[NSAttributedString alloc] initWithString:cleaned
+                                                                    attributes:attributes] autorelease];
+    [textStorage appendAttributedString:addition];
+
+    // Bound long-running sessions while keeping append cost independent of
+    // the amount of log history already displayed.
+    constexpr NSUInteger kMaxLogCharacters = 32000;
+    if ([textStorage length] > kMaxLogCharacters) {
+        const NSUInteger overflow = [textStorage length] - kMaxLogCharacters;
+        const NSRange trimRange = [[textStorage string]
+            rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, overflow)];
+        [textStorage deleteCharactersInRange:trimRange];
+    }
 
     // Scroll to bottom
-    NSRange range = NSMakeRange([[activityLogView string] length], 0);
+    NSRange range = NSMakeRange([textStorage length], 0);
     [activityLogView scrollRangeToVisible:range];
 }
 

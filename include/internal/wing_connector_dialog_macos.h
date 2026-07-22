@@ -8,6 +8,7 @@
 
 #ifdef __APPLE__
 
+#include "internal/adoption_editor.h"
 #include <vector>
 #include <string>
 #include "reaper_extension.h"  // For ChannelSelectionInfo (from wingconnector/)
@@ -44,16 +45,6 @@ extern "C" {
                                    bool& setup_soundcheck,
                                    bool& overwrite_existing);
 }
-
-struct AdoptionEditorRow {
-    int track_index = 0;
-    std::string track_name;
-    bool stereo_like = false;
-    int suggested_channel = 0;
-    int assigned_channel = 0;
-    int suggested_slot_start = 0;
-    int suggested_slot_end = 0;
-};
 
 extern "C" {
     bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& rows,
