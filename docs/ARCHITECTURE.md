@@ -36,8 +36,8 @@ Headers are split between:
 1. REAPER loads plugin via `REAPER_PLUGIN_ENTRYPOINT`.
 2. API function pointers are resolved.
 3. Extension singleton initializes configuration and runtime components.
-4. REAPER actions are registered for the main WINGuard flow and the standalone selected-channel bridge setup flow.
-5. User triggers an action; the matching UI or bridge entry point starts.
+4. REAPER actions are registered for the main WINGuard flow and existing-project adoption.
+5. User triggers an action; the matching UI flow starts. Selected-channel bridge settings are exposed in the macOS main dialog and loaded through the shared config path on both platforms.
 6. OSC queries fetch channel data from WING.
 7. Track manager creates/updates REAPER tracks.
 8. Optional auto-trigger and virtual soundcheck actions operate from dialog controls.
@@ -49,6 +49,10 @@ Headers are split between:
 
 - macOS: native Objective-C++ dialogs in `src/ui/*_macos.mm`
 - Windows: native Win32 main dialog in `src/ui/wing_connector_dialog_windows.cpp`, routed from `dialog_bridge`
+
+Windows dialogs inherit REAPER's DPI-awareness context and must not change process-wide or persistent thread-wide DPI awareness. Each dialog owns its effective DPI and system-derived fonts, lays out controls in device-independent units, and refreshes both when Windows reports a DPI or system-setting change.
+
+The native implementations share the same UI contract: tab order, information hierarchy, compact 760-unit content grid, semantic status states, and operator-facing copy. Platform controls keep their native rendering and accessibility behavior; decorative header, status-card, callout, and divider surfaces carry the common visual language.
 
 This keeps the product on native UI surfaces for both supported platforms while shared extension/core logic remains platform-neutral.
 
@@ -87,4 +91,4 @@ Packaging scripts:
 - Configuration is file-based (`config.json`) for predictable deployment.
 - WING shortcut command assignment is plugin-managed (not dependent on REAPER action-list shortcuts being reloaded at runtime).
 - Managed source monitoring is orchestrated in `src/extension/` and reuses the existing `src/core/` routing/allocation code instead of maintaining a second routing engine.
-- Selected-channel bridge work is intentionally isolated from live soundcheck and recorder flows until the WING event source is protocol-confirmed.
+- The selected-channel bridge is isolated from live soundcheck and recorder flows, polls the confirmed WING selection endpoint, and emits MIDI only for configured mappings.

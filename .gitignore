@@ -1,7 +1,9 @@
 # Build directories
 build/
 build-tests/
+build-*/
 install/
+.codex_tmp/
 cmake-build-*/
 pkg_root/
 pkg_scripts/
@@ -18,8 +20,6 @@ pkg_scripts/
 
 # Installer packages
 *.pkg
-# But allow packages in releases folder
-!releases/*.pkg
 
 # Python (backup)
 __pycache__/
@@ -28,6 +28,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 *.egg-info/
 

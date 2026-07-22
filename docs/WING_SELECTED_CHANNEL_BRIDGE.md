@@ -1,57 +1,49 @@
 # Selected Channel Bridge
 
-This document records the current implementation decision for bringing the selected-channel bridge into this plugin.
+The selected-channel bridge converts the currently selected WING strip into a configured MIDI message for integrations such as SuperRack. It is independent from virtual soundcheck, recorder control, and the WING CC transport controls.
 
-WINGuard tagline: Guard every take. Faster setup, safer record(w)ing!
+## How It Works
 
-## Product Direction
+1. WINGuard polls `/$ctl/$stat/selidx` through the active WING connection.
+2. The selected strip is resolved as a channel, bus, main, or matrix.
+3. After the configured debounce interval, WINGuard looks up the matching bridge mapping.
+4. A mapped selection emits MIDI through the configured REAPER MIDI output.
 
-This repository is no longer only a virtual soundcheck helper. It is better treated as a broader WING integration plugin for REAPER.
+Polling is used because live desk validation showed that selection changes were readable but were not reliably emitted through the tested subscription path.
 
-That affects the bridge work in two ways:
+## Configuration
 
-- the selected-channel bridge must be exposed as its own REAPER action
-- the bridge must not be folded into the live soundcheck or recorder-control flows
+On macOS, open the main `WINGuard: Configure Virtual Soundcheck/Recording` action and use the bridge controls in `Control Integration`. The current Windows dialog reports the applied integration state but does not yet expose the full bridge mapping editor; Windows bridge settings are loaded from `config.json`.
 
-## Action Boundary
+Bridge settings include:
 
-Current action split:
+- MIDI output device
+- message behavior: `NOTE_ON`, `NOTE_ON_OFF`, or `PROGRAM`
+- MIDI channel `1..16`
+- source-to-MIDI mappings
+- enable/disable state
 
-- `WINGuard: Configure Virtual Soundcheck/Recording`
-  - main connection, source discovery, track setup, soundcheck, MIDI CC transport, and recorder-related workflows
-- `WINGuard: Selected Channel Bridge Setup`
-  - dedicated entry point for bridge-specific notes, validation status, and future bridge configuration
+Mapping entries use `SOURCE=MIDI_VALUE` and are separated by semicolons. Supported source families and ranges are:
 
-This keeps bridge work isolated from the existing recording and soundcheck behavior.
+- `CH1..CH48`
+- `BUS1..BUS16`
+- `MAIN1..MAIN4`
+- `MTX1..MTX8`
 
-## What Is Still Missing
+Example:
 
-Live validation against a desk at `192.168.10.210` narrowed the protocol uncertainty:
+```text
+CH1=10;BUS1=20;MAIN1=30;MTX1=40
+```
 
-- `/$ctl/$stat/selidx` is readable and reports the selected strip id
-- reads return a 0-based value even though the protocol documentation describes writes as `1..76`
-- a controlled `/*S~` subscription test did not emit `/$ctl/$stat/selidx` when the selected strip changed
+MIDI values must be in the range `0..127`. Settings are persisted through the normal `config.json` path.
 
-That means the bridge no longer needs to wait on a generic “can this be read?” discovery step. The safer v1 decision is:
+## Runtime Behavior
 
-- use polling of `/$ctl/$stat/selidx`
-- treat event subscription as a later optimization
-- reuse the same connected WING session as the main WINGuard action instead of letting the bridge action guess its own target
+- The bridge starts only when it is enabled, WINGuard is connected, a MIDI output is selected, and at least one mapping exists.
+- Repeated polls of the same selected strip do not resend MIDI.
+- `NOTE_ON_OFF` releases the previous mapped note when selection changes or the bridge stops.
+- Disconnecting or unloading the plugin stops the polling thread and clears bridge MIDI state.
+- An unmapped selection is reported in bridge status without emitting MIDI.
 
-The remaining runtime work is mapping the selected strip id into the intended logical bridge target and sending the corresponding MIDI output.
-
-## Recommended Implementation Order
-
-1. Capture the real selected-channel OSC event from a live WING session.
-2. Add a dedicated polling selection-state module that converts `/$ctl/$stat/selidx` into a normalized `ChannelSelection` model.
-3. Add bridge-specific config for polling interval, debounce, MIDI output target, and mapping policy.
-4. Add a REAPER-backed MIDI output sender for Note On first.
-5. Wire the selected-channel bridge pipeline behind the separate bridge action and bridge-specific enablement.
-
-## Rename Direction
-
-Near-term rename direction for user-facing text:
-
-- favor `WINGuard` over `Virtual Soundcheck` for the main plugin entry point
-- keep `Virtual Soundcheck` only where it describes that specific feature
-- keep internal identifiers stable where changing them would break existing REAPER action bindings or packaging unexpectedly
+Use the bridge test control to confirm the selected MIDI output before relying on live selection changes.

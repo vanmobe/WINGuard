@@ -37,7 +37,7 @@ if(APPLE)
 elseif(WIN32)
     set(EXTENSION_SUFFIX ".dll")
 else()
-    message(FATAL_ERROR "Linux and other non-macOS/non-Windows platforms are no longer supported.")
+    message(FATAL_ERROR "Unsupported platform. This project builds only on macOS and Windows.")
 endif()
 
 # Source files

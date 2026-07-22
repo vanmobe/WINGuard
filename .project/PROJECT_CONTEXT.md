@@ -38,10 +38,30 @@
 ## Supported Platforms And Parity Rules
 
 - Officially supported platforms are macOS and Windows.
-- `CMakeLists.txt` explicitly fails Linux and other non-macOS/non-Windows builds.
+- `CMakeLists.txt` explicitly limits builds to macOS and Windows.
 - Cross-platform parity is expected for the main connection and REAPER setup workflow.
 - Platform-specific UI implementations are allowed, but feature behavior should stay aligned unless a difference is explicitly documented as intentional.
 - Validation should include successful build on the changed platform and manual REAPER verification when runtime behavior changes.
+
+## Native UI Decisions
+
+- The current macOS main-dialog implementation is the visual and information-architecture reference. Older checked-in screenshots may show the retired single-page UI and are not authoritative.
+- Cross-platform parity means the same four visible tabs and order (`Console`, `Reaper`, `Wing`, `Control Integration`), form hierarchy, operator copy, spacing rhythm, staged states, and interaction semantics. Pixel-identical platform chrome is not a goal.
+- The optional selected-channel Bridge tab remains hidden in the main window. Bridge behavior stays a separate workflow unless a future product decision explicitly changes that boundary.
+- Windows intentionally retains a compact 112-DIP header rather than copying the macOS 152-point header literally. Its composition still follows macOS: 40-DIP mark, title/subtitle, and four vertically stacked status rows.
+- The shared main-window geometry contract is an 860×780 preferred size, an 820×560 monitor-clamped minimum, a compact 760-unit content surface, 20-unit page margins, a 180-unit label column, and controls beginning at x=220.
+- Keep interactive UI native: AppKit controls on macOS and Win32 common controls on Windows. On Windows, use `WC_TABCONTROL` and push-like auto-radio buttons for segmented choices; limit custom painting to decorative header, status-card, callout, and divider surfaces.
+- The Windows-only pinned footer is an intentional operational-feedback surface even though macOS has no exact counterpart. Do not remove it without first relocating transient progress and error feedback.
+- Header and tab statuses are projections of applied configuration, staged edits, asynchronous work, and validation state. Pending recorder, Auto Trigger, and control-integration edits must remain visibly distinguishable from applied state.
+
+## Windows DPI And Layout Contract
+
+- REAPER owns process DPI awareness. Extension UI must not change process-wide or persistent thread-wide DPI awareness.
+- Every Windows top-level dialog owns its current DPI and font handles, handles `WM_DPICHANGED` and `WM_SETTINGCHANGE`, applies the suggested DPI rectangle, and rebuilds its fonts before relayout. Never share a DPI-specific font handle between top-level windows.
+- Win32 messages provide physical pixels; layout and scroll state use 96-DPI device-independent units. Convert at the boundary and avoid mixing physical rectangles with logical document coordinates.
+- Font roles derive from Windows `NONCLIENTMETRICS` rather than a hard-coded face or point size. Decorative dimensions scale with display DPI, and long pages scroll vertically instead of compressing the form grid until text clips.
+- Windows Accessibility **Text size** is separate from Display scaling. Current system-font/DPI handling must not be described as verified 100–225% accessibility text scaling until it is explicitly implemented or validated in REAPER on Windows.
+- Automated coverage lives in `windows_ui_layout_tests` and runs in Windows CI. Native release validation still requires REAPER checks at 100%, 125%, 150%, and 200%, including small work areas, long text, auxiliary dialogs, and a mixed-DPI monitor move; 150% is the regression gate for clipped text.
 
 ## API And Data Conventions
 
@@ -82,4 +102,4 @@
 - Do not flatten the module structure into a single mixed layer.
 - Do not replace `config.json` persistence with a new storage model without explicit direction.
 - Do not treat unverified WING OSC paths as supported product behavior just because they exist in reference material.
-- Do not expand Linux support based on older fallback-language in docs or intake notes; current build support is macOS and Windows only.
+- Do not expand platform support based on older fallback-language in historical material; current build support is macOS and Windows only.

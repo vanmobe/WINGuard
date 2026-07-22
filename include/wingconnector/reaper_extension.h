@@ -137,13 +137,13 @@ private:
         int cc_number;
     };
     static constexpr MidiAction MIDI_ACTIONS[] = {
-        {1007,  "WINGuard: Play", 20},
-        {1013,  "WINGuard: Record", 21},
-        {0,     "WINGuard: Toggle Virtual Soundcheck", 22},
-        {40667, "WINGuard: Stop", 23},
-        {40157, "WINGuard: Set Marker", 24},
-        {40172, "WINGuard: Previous Marker", 25},
-        {40173, "WINGuard: Next Marker", 26}
+        {1007,  "AUDIOLAB.wing.reaper.virtualsoundcheck: Play", 20},
+        {1013,  "AUDIOLAB.wing.reaper.virtualsoundcheck: Record", 21},
+        {0,     "AUDIOLAB.wing.reaper.virtualsoundcheck: Toggle Virtual Soundcheck", 22},
+        {40667, "AUDIOLAB.wing.reaper.virtualsoundcheck: Stop", 23},
+        {40157, "AUDIOLAB.wing.reaper.virtualsoundcheck: Set Marker", 24},
+        {40172, "AUDIOLAB.wing.reaper.virtualsoundcheck: Previous Marker", 25},
+        {40173, "AUDIOLAB.wing.reaper.virtualsoundcheck: Next Marker", 26}
     };
     
     void UnregisterMidiShortcuts();

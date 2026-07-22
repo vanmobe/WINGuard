@@ -58,6 +58,7 @@ Notes:
 - Buses and matrices can be selected for recording setup, but they remain record-only and are not affected by the soundcheck toggle.
 - If you open a REAPER project that was not prepared by WINGuard, use `Adopt Existing Reaper Project for Virtual Soundcheck` to review likely channel matches first. This action now lets you keep or override the proposed channel mapping, choose global `USB` or `CARD` routing, optionally override playback slots, and then adopt the imported tracks in place without creating duplicate tracks.
 - The main WINGuard action opens the native tabbed window on both supported platforms.
+- Windows follows the same compact layout as macOS and scales its system-derived fonts and controls with the active display DPI.
 - The existing-project adoption action remains a separate review-first workflow that connects to WING before imported-track review starts.
 - Existing-project adoption shortcut: `Cmd+Shift+I` on macOS, `Ctrl+Shift+I` on Windows.
 
@@ -84,7 +85,6 @@ No manual REAPER action-list shortcut setup is required in normal use.
 
 Detailed behavior:
 
-- [snapshots/README.md](snapshots/README.md)
 - [docs/CC_BUTTONS_AND_AUTO_TRIGGER.md](docs/CC_BUTTONS_AND_AUTO_TRIGGER.md)
 
 ## 6. Optional: Auto-Record Trigger
