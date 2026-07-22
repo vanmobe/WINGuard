@@ -389,8 +389,10 @@ void SetMonitorClampedMinimumTrackSize(HWND hwnd,
     monitor_info.cbSize = sizeof(monitor_info);
     const HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     if (monitor && GetMonitorInfoW(monitor, &monitor_info)) {
-        minimum_width = std::min(minimum_width, monitor_info.rcWork.right - monitor_info.rcWork.left);
-        minimum_height = std::min(minimum_height, monitor_info.rcWork.bottom - monitor_info.rcWork.top);
+        const int work_width = static_cast<int>(monitor_info.rcWork.right - monitor_info.rcWork.left);
+        const int work_height = static_cast<int>(monitor_info.rcWork.bottom - monitor_info.rcWork.top);
+        minimum_width = std::min(minimum_width, work_width);
+        minimum_height = std::min(minimum_height, work_height);
     }
     info->ptMinTrackSize.x = minimum_width;
     info->ptMinTrackSize.y = minimum_height;
@@ -434,7 +436,7 @@ HFONT CreateUiFontForDpi(UINT dpi,
     // The caller owns the returned HFONT. Each top-level dialog must bind a
     // replacement before deleting its previous DPI-specific font handles.
     LOGFONTW font = SystemMessageFont(dpi);
-    const int base_height = std::max(1, std::abs(font.lfHeight));
+    const int base_height = std::max(1, std::abs(static_cast<int>(font.lfHeight)));
     font.lfHeight = -std::max(1, (base_height * size_percent + 50) / 100);
     if (weight != FW_DONTCARE) {
         font.lfWeight = weight;
