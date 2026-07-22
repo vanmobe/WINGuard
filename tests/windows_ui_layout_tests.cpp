@@ -35,7 +35,7 @@ int main() {
            "small work areas must never be exceeded");
 
     const MainVerticalLayout base = CalculateMainVerticalLayout(620, 96);
-    Expect(base.page_y == 166, "compact header and tabs should reclaim vertical space");
+    Expect(base.page_y == 154, "compact header and tabs should reclaim vertical space");
     Expect(base.page_height > 0, "minimum-height windows must retain a usable page viewport");
     Expect(base.page_y + base.page_height <= base.footer_y,
            "page content must never overlap the footer");

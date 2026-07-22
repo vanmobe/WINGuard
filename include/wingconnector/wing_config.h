@@ -37,7 +37,7 @@ struct WingConfig {
     bool auto_record_warning_only = false;
     double auto_record_threshold_db = -40.0;
     int auto_record_attack_ms = 250;
-    int auto_record_hold_ms = 3000;
+    int auto_record_hold_ms = 120000;
     int auto_record_release_ms = 2000;
     int auto_record_min_record_ms = 5000;
     int auto_record_poll_ms = 50;

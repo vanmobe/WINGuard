@@ -55,7 +55,7 @@ The macOS and Windows main windows use the same four-tab organization and compac
 
 Selected-channel bridge work is intentionally separate:
 
-- configure it from the `Control Integration` tab
+- configure it from the `Integration` tab
 - see [WING_SELECTED_CHANNEL_BRIDGE.md](WING_SELECTED_CHANNEL_BRIDGE.md) for mapping and MIDI behavior
 
 ![Actions/config view](images/action-config.png)

@@ -246,6 +246,11 @@ std::string LoadWingIpFromConfig() {
     if (const char* home = std::getenv("HOME")) {
         candidate_paths.push_back(std::string(home) + "/.wingconnector/config.json");
     }
+#if defined(_WIN32)
+    if (const char* profile = std::getenv("USERPROFILE")) {
+        candidate_paths.push_back(std::string(profile) + "/.wingconnector/config.json");
+    }
+#endif
     candidate_paths.push_back("install/config.json");
 
     for (const auto& path : candidate_paths) {

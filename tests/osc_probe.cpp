@@ -271,6 +271,11 @@ std::string LoadWingIpFromConfig() {
     if (const char* home = std::getenv("HOME")) {
         candidate_paths.push_back(std::string(home) + "/.wingconnector/config.json");
     }
+#if defined(_WIN32)
+    if (const char* profile = std::getenv("USERPROFILE")) {
+        candidate_paths.push_back(std::string(profile) + "/.wingconnector/config.json");
+    }
+#endif
     candidate_paths.push_back("install/config.json");
 
     for (const auto& path : candidate_paths) {
@@ -422,7 +427,7 @@ int main(int argc, char** argv) {
 
     const std::string wing_ip = LoadWingIpFromConfig();
     std::cout << "Polling WING at " << wing_ip << ":2223 for CH" << channel_number << "\n";
-    std::cout << "Press Ctrl+C to stop.\n";
+    std::cout << "Press Ctrl+C to stop.\n" << std::flush;
 
     std::map<std::string, std::string> last_seen;
     std::string source_group;
@@ -445,6 +450,7 @@ int main(int argc, char** argv) {
             auto previous = last_seen.find(address);
             if (previous == last_seen.end() || previous->second != reply.rendered) {
                 std::cout << "[" << TimestampNow() << "] " << address << " -> " << reply.rendered << "\n";
+                std::cout.flush();
                 last_seen[address] = reply.rendered;
             }
         }

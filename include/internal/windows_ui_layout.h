@@ -55,14 +55,15 @@ inline MainVerticalLayout CalculateMainVerticalLayout(int client_height, unsigne
     // invariant tests, but callers must not mix physical and logical units.
     MainVerticalLayout layout;
     layout.header_y = 0;
-    layout.header_height = ScaleDip(112, dpi);
+    layout.header_height = ScaleDip(104, dpi);
     layout.tab_y = layout.header_y + layout.header_height + ScaleDip(8, dpi);
-    layout.tab_height = ScaleDip(40, dpi);
-    layout.page_y = layout.tab_y + layout.tab_height + ScaleDip(6, dpi);
+    layout.tab_height = ScaleDip(38, dpi);
+    layout.page_y = layout.tab_y + layout.tab_height + ScaleDip(4, dpi);
     layout.footer_height = ScaleDip(28, dpi);
     layout.footer_y = std::max(layout.page_y,
                                client_height - layout.footer_height - ScaleDip(10, dpi));
-    layout.page_height = std::max(0, layout.footer_y - layout.page_y - ScaleDip(8, dpi));
+    const int available_page_height = std::max(0, layout.footer_y - layout.page_y - ScaleDip(8, dpi));
+    layout.page_height = available_page_height < ScaleDip(24, dpi) ? 0 : available_page_height;
     return layout;
 }
 

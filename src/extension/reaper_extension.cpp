@@ -923,7 +923,10 @@ std::vector<SourceSelectionInfo> ReaperExtension::GetAvailableSources() {
     }
 
     for (auto& info : result) {
-        info.selected = MatchesExistingSelection(info, existing_source_ids, existing_source_names, has_existing_selection);
+        const bool has_recording_input = info.kind != SourceKind::Channel ||
+            (!info.source_group.empty() && info.source_group != "OFF" && info.source_input > 0);
+        info.selected = has_recording_input &&
+            MatchesExistingSelection(info, existing_source_ids, existing_source_names, has_existing_selection);
     }
 
     Log(std::string("WINGuard: GetAvailableSources timing — source=") +
@@ -990,6 +993,7 @@ std::vector<SourceSelectionInfo> ReaperExtension::QueryAvailableSourcesSnapshot(
     const long long user_signal_done_ms = SteadyNowMs();
 
     std::set<std::pair<std::string, int>> source_endpoints;
+    std::set<std::pair<std::string, int>> source_mode_endpoints;
     const auto effective_display_states = BuildManagedEffectiveDisplayStates(BuildChannelInputStateMap(channel_data));
 
     for (const auto& pair : channel_data) {
@@ -1000,11 +1004,20 @@ std::vector<SourceSelectionInfo> ReaperExtension::QueryAvailableSourcesSnapshot(
         std::pair<std::string, int> display_source =
             ResolveDisplaySource(osc_handler_.get(), ch.primary_source_group, ch.primary_source_input);
         source_endpoints.insert(display_source);
+        source_mode_endpoints.insert({ch.primary_source_group, ch.primary_source_input});
+        source_mode_endpoints.insert(display_source);
         if (ch.stereo_linked) {
             source_endpoints.insert({display_source.first, display_source.second + 1});
         }
     }
     osc_handler_->QueryInputSourceNames(source_endpoints);
+    std::vector<std::string> source_mode_paths;
+    for (const auto& [group, input] : source_mode_endpoints) {
+        if (!group.empty() && group != "OFF" && input > 0) {
+            source_mode_paths.push_back("/io/in/" + group + "/" + std::to_string(input) + "/mode");
+        }
+    }
+    const auto source_modes = osc_handler_->QueryStringAddressesDirect(source_mode_paths, 500, 60);
     const long long input_name_done_ms = SteadyNowMs();
 
     Log("WINGuard: Processing channel data...\n");
@@ -1022,10 +1035,16 @@ std::vector<SourceSelectionInfo> ReaperExtension::QueryAvailableSourcesSnapshot(
         info.source_group = ch.primary_source_group;
         info.source_input = ch.primary_source_input;
 
-        const bool is_stereo = ch.stereo_linked;
+        const auto reports_stereo_mode = [&](const std::string& group, int input) {
+            const auto found = source_modes.find("/io/in/" + group + "/" + std::to_string(input) + "/mode");
+            return found != source_modes.end() && (found->second == "ST" || found->second == "MS");
+        };
         const std::pair<std::string, int> raw_source = {ch.primary_source_group, ch.primary_source_input};
         const std::pair<std::string, int> display_source =
             ResolveDisplaySource(osc_handler_.get(), raw_source.first, raw_source.second);
+        const bool is_stereo = ch.stereo_linked ||
+            reports_stereo_mode(raw_source.first, raw_source.second) ||
+            reports_stereo_mode(display_source.first, display_source.second);
         info.source_group = display_source.first;
         info.source_input = display_source.second;
 
@@ -1565,7 +1584,11 @@ bool ReaperExtension::PrepareSoundcheckPlan(const std::vector<SourceSelectionInf
         auto it = updated_channel_data.find(selected.source_number);
         if (it != updated_channel_data.end()) {
             if (!selected.stereo_intent_override) {
-                selected.stereo_linked = it->second.stereo_linked;
+                // The catalog also derives stereo from the routed input mode
+                // (for example a stereo USR signal on an unlinked channel).
+                // QueryChannel refreshes the channel link state only, so it
+                // must not erase a verified stereo source result.
+                selected.stereo_linked = selected.stereo_linked || it->second.stereo_linked;
             }
             if (selected.name.empty()) {
                 selected.name = StableChannelTrackName(selected.source_number);
@@ -1710,7 +1733,10 @@ bool ReaperExtension::SetupSoundcheckInternal(const std::vector<SourceSelectionI
             auto it = updated_channel_data.find(selected.source_number);
             if (it != updated_channel_data.end()) {
                 if (!selected.stereo_intent_override) {
-                    selected.stereo_linked = it->second.stereo_linked;
+                    // Preserve stereo discovered from the source endpoint.
+                    // Channel refresh data only adds physical channel-link
+                    // information; it cannot disprove the source mode.
+                    selected.stereo_linked = selected.stereo_linked || it->second.stereo_linked;
                 }
                 if (selected.name.empty()) {
                     selected.name = StableChannelTrackName(selected.source_number);
