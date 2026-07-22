@@ -3950,17 +3950,23 @@ bool ShowExistingProjectAdoptionEditor(const std::vector<AdoptionEditorRow>& row
             return;
         }
 
-        extension.GetConfig().soundcheck_output_mode = blockSelf->pendingOutputMode;
         dispatch_async(dispatch_get_main_queue(), ^{
             [blockSelf appendToLog:[NSString stringWithFormat:@"Applying live recording setup for %d sources (%s existing REAPER tracks, %s mode)...\n",
                                     selectedCount,
                                     overwrite_existing ? "replacing" : "appending to",
                                     blockSelf->pendingOutputMode.c_str()]];
-            extension.SetupSoundcheckFromSelection(channels_to_apply, setup_soundcheck, overwrite_existing);
-            [blockSelf appendToLog:@"✓ Live recording setup complete\n"];
-            [blockSelf clearPendingSetupDraft:NO];
-            [blockSelf refreshMonitorTrackDropdown];
-            [blockSelf persistConfigAndLog:@"Saved live setup changes.\n"];
+            const std::string applied_output_mode = extension.GetConfig().soundcheck_output_mode;
+            extension.GetConfig().soundcheck_output_mode = blockSelf->pendingOutputMode;
+            if (extension.SetupSoundcheckFromSelection(channels_to_apply, setup_soundcheck, overwrite_existing)) {
+                [blockSelf appendToLog:@"✓ Live recording setup complete\n"];
+                [blockSelf clearPendingSetupDraft:NO];
+                [blockSelf refreshMonitorTrackDropdown];
+                [blockSelf persistConfigAndLog:@"Saved live setup changes.\n"];
+            } else {
+                // Keep both the staged draft and its output mode available for a retry.
+                extension.GetConfig().soundcheck_output_mode = applied_output_mode;
+                [blockSelf appendToLog:@"✗ Live recording setup did not complete. The staged setup was preserved for retry.\n"];
+            }
             [blockSelf setWorkingState:NO];
             [blockSelf refreshLiveSetupValidation];
         });
